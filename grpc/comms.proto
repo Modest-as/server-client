@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package grpc;
+
+service Comms {
+    rpc GetNumbers (stream Request) returns (stream Reply) {}
+}
+
+message Request { 
+    string message = 1;
+}
+
+message Reply {
+    int64 number = 1;
+}
