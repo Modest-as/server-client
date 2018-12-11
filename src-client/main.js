@@ -1,35 +1,17 @@
-var PROTO_PATH = __dirname + '/../grpc/comms.proto';
-var grpc = require('grpc');
-var protoLoader = require('@grpc/proto-loader');
-
-// Suggested options for similarity to existing grpc.load behavior
-var packageDefinition = protoLoader.loadSync(
-    PROTO_PATH,
-    {
-        keepCase: true,
-        longs: String,
-        enums: String,
-        defaults: true,
-        oneofs: true
-    });
-
-var server = grpc.loadPackageDefinition(packageDefinition).grpc;
+var grpcClient = require('./grpc_client');
 
 function main() {
-    var client = new server.Comms('localhost:1337', grpc.credentials.createInsecure());
+    grpcClient.subscribe(1337, function(call, lastMessage) {
+        call.write({ message: "START" })
 
-    var call = client.GetNumbers();
-
-    call.write({ message: "START" })
-
-    call.on('data', function (result) {
-        console.log(result.data.number)
-    })
-
-    setTimeout(function () {
-        call.write({ message: "END" });
-    }, 5000000);
+        call.on('data', function (result) {
+            console.log(result.data.number)
+        })
+    
+        setTimeout(function () {
+            call.write({ message: "END" });
+        }, 5000000);
+    });
 }
 
 main()
-
