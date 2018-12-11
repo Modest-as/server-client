@@ -1,4 +1,4 @@
-package main
+package listener
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/modest-as/server-client/grpc"
-	sv "github.com/modest-as/server-client/src-server/server"
+	sv "github.com/modest-as/server-client/src-server/handler"
 )
 
 // Listen creates a GRPC server

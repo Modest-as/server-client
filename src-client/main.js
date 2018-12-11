@@ -23,12 +23,12 @@ function main() {
     call.write({ message: "START" })
 
     call.on('data', function (result) {
-        console.log(result.number)
+        console.log(result.data.number)
     })
 
     setTimeout(function () {
         call.write({ message: "END" });
-    }, 5000);
+    }, 5000000);
 }
 
 main()

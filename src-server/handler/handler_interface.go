@@ -1,4 +1,4 @@
-package server
+package handler
 
 import pb "github.com/modest-as/server-client/grpc"
 

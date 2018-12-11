@@ -4,7 +4,8 @@ import (
 	"flag"
 	"log"
 
-	sv "github.com/modest-as/server-client/src-server/server"
+	sv "github.com/modest-as/server-client/src-server/handler"
+	ls "github.com/modest-as/server-client/src-server/listener"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 	log.Println("Mode: ", *mode)
 	log.Println("Port: ", *port)
 
-	err := Listen(*port, handler)
+	err := ls.Listen(*port, handler)
 
 	if err != nil {
 		log.Fatalf("failed to serve: %v", err)

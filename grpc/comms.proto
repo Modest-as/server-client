@@ -11,5 +11,16 @@ message Request {
 }
 
 message Reply {
-    int64 number = 1;
+    oneof payload {
+        Data data = 1;
+        Error error = 2;
+    }
+}
+
+message Data {
+    uint64 number = 1;
+}
+
+message Error {
+    string message = 1;
 }
