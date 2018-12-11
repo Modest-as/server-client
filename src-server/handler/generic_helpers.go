@@ -2,7 +2,9 @@ package handler
 
 import (
 	"log"
+	"math/rand"
 	"strconv"
+	"time"
 
 	pb "github.com/modest-as/server-client/grpc"
 )
@@ -27,6 +29,30 @@ func makeErrorReply(message string) *pb.Reply {
 	error := pb.Error{Message: message}
 	replyError := pb.Reply_Error{Error: &error}
 	return &pb.Reply{Payload: &replyError}
+}
+
+func sendReply(c pb.Comms_GetNumbersServer, reply *pb.Reply, done *chan bool) bool {
+	err := c.Send(reply)
+
+	if channelIsClosed(done) {
+		return true
+	}
+
+	if err != nil {
+		close(*done)
+		logErrors(err)
+		return true
+	}
+
+	logReply(reply)
+
+	return false
+}
+
+func getRandomSeed() uint64 {
+	rand.Seed(time.Now().UnixNano())
+
+	return uint64(rand.Intn(0xff) + 1)
 }
 
 func logErrors(err error) {

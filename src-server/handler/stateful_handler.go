@@ -8,17 +8,14 @@ import (
 	pb "github.com/modest-as/server-client/grpc"
 )
 
-const period = 1
-const multiplier = 3
-
-// StatelessHandler stateless server handler
-type StatelessHandler struct{}
+// StatefulHandler stateful server handler
+type StatefulHandler struct{}
 
 // GetNumbers handles server call to get numbers.
 // We can potentially implement a state machine here.
 // We also are not handling the case where GRPC context
 // issues cancel signal explicitly.
-func (s StatelessHandler) GetNumbers(c pb.Comms_GetNumbersServer) error {
+func (s StatefulHandler) GetNumbers(c pb.Comms_GetNumbersServer) error {
 	msgAcc := makeMessageAccessor()
 
 	done := make(chan bool)
@@ -38,7 +35,7 @@ func (s StatelessHandler) GetNumbers(c pb.Comms_GetNumbersServer) error {
 // START - starts a stream
 // CONTINUE *a* - continues from the number *a*
 // END - ends the stream
-func (s StatelessHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *messageAccessor, done *chan bool) {
+func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *messageAccessor, done *chan bool) {
 	started := false
 	terminate := false
 

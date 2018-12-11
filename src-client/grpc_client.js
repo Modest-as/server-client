@@ -38,11 +38,12 @@ function subscribe(port, action, timeout, timeoutAction = function() {}) {
                     onReceiveStatus: function(status, next) {
                         if (status.code !== grpc.status.OK) {
                             backoff *= backoff_rate;
-                            
+
                             if (backoff > timeout) {
                                 console.log("Failed to connect, timeout");
                                 timeoutAction();
                                 process.exit();
+                                return;
                             }
 
                             console.log(`Failed to connect, will retry in ${backoff} seconds`);

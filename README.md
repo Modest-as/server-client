@@ -31,3 +31,7 @@
 # Assumptions
 
 <Placeholder>
+
+# Testing 
+
+Implement testing mode in client where it precalculates expected value and comperes to the response from the server.

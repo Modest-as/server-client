@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
 
@@ -69,7 +70,7 @@ func (accessor *messageAccessor) getMsg() string {
 
 // validate message pattern and execute an action if it matches
 func check(message string, pattern string, action func([]string)) {
-	r := regexp.MustCompile(pattern)
+	r := regexp.MustCompile(fmt.Sprintf("^%s$", pattern))
 
 	matches := r.FindStringSubmatch(message)
 

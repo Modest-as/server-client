@@ -18,6 +18,10 @@ func main() {
 
 	if *mode == "stateless" {
 		handler = sv.StatelessHandler{}
+	} else if *mode == "stateful" {
+		handler = sv.StatefulHandler{}
+	} else {
+		log.Fatalf("mode should be either stateless or stateful")
 	}
 
 	log.Println("Mode: ", *mode)
