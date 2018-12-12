@@ -4,8 +4,9 @@ import (
 	"flag"
 	"log"
 
-	sv "github.com/modest-as/server-client/src-server/handler"
-	ls "github.com/modest-as/server-client/src-server/listener"
+	h "github.com/modest-as/server-client/src-server/handler"
+	l "github.com/modest-as/server-client/src-server/listener"
+	s "github.com/modest-as/server-client/src-server/store"
 )
 
 func main() {
@@ -14,12 +15,13 @@ func main() {
 
 	flag.Parse()
 
-	var handler sv.Handler
+	var handler h.Handler
 
 	if *mode == "stateless" {
-		handler = sv.StatelessHandler{}
+		handler = h.StatelessHandler{}
 	} else if *mode == "stateful" {
-		handler = sv.StatefulHandler{}
+		store := s.MakeInMemoryStore()
+		handler = h.MakeStatefulHandler(store)
 	} else {
 		log.Fatalf("mode should be either stateless or stateful")
 	}
@@ -27,7 +29,7 @@ func main() {
 	log.Println("Mode: ", *mode)
 	log.Println("Port: ", *port)
 
-	err := ls.Listen(*port, handler)
+	err := l.Listen(*port, handler)
 
 	if err != nil {
 		log.Fatalf("failed to serve: %v", err)

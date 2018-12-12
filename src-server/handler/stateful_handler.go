@@ -5,11 +5,27 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
+
 	pb "github.com/modest-as/server-client/grpc"
+	st "github.com/modest-as/server-client/src-server/store"
 )
 
+const nUpperBound = 0xffff
+
 // StatefulHandler stateful server handler
-type StatefulHandler struct{}
+type StatefulHandler struct {
+	store *st.Store
+}
+
+// MakeStatefulHandler returns stateful handler with store
+func MakeStatefulHandler(store st.Store) StatefulHandler {
+	handler := StatefulHandler{
+		store: &store,
+	}
+
+	return handler
+}
 
 // GetNumbers handles server call to get numbers.
 // We can potentially implement a state machine here.
@@ -32,25 +48,38 @@ func (s StatefulHandler) GetNumbers(c pb.Comms_GetNumbersServer) error {
 
 // loop and send a response every *period* seconds
 // Protocol:
-// START - starts a stream
-// CONTINUE *a* - continues from the number *a*
-// END - ends the stream
+// START *uuid* *n* - starts a stream
+// CONTINUE *uuid* - continues existing session
 func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *messageAccessor, done *chan bool) {
 	started := false
 	terminate := false
 
-	var currentVal uint64
+	var id uuid.UUID
 
 	for {
 		if started {
-			reply := makeDataReply(currentVal)
-			terminate = sendReply(c, reply, done)
+			hasNext, err := (*s.store).HasNext(id)
 
-			if terminate {
+			if err != nil {
+				reply := makeErrorReply("couldn't generate next random int")
+				sendReply(c, reply, done)
 				return
 			}
 
-			currentVal *= multiplier
+			if hasNext {
+				a := (*s.store).GetNext(id)
+				reply := makeDataReply(uint64(a))
+				terminate = sendReply(c, reply, done)
+
+				if !terminate {
+					(*s.store).Update(id, a)
+				}
+			}
+
+			if terminate || !hasNext {
+				closeIfOpen(done)
+				return
+			}
 		}
 
 		currentMsg := msgAcc.getMsg()
@@ -59,19 +88,60 @@ func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *mes
 			log.Println("Received: ", currentMsg)
 		}
 
-		check(currentMsg, `START`, func(_ []string) {
-			if !started {
-				started = true
-				currentVal = getRandomSeed()
+		check(currentMsg, `START (.+) (\d+)`, func(m []string) {
+			if started {
+				reply := makeErrorReply("server was already running")
+				sendReply(c, reply, done)
+				terminate = true
 			}
+
+			if len(m) != 3 {
+				reply := makeErrorReply("invalid start parameters")
+				sendReply(c, reply, done)
+				terminate = true
+			}
+
+			var err error
+
+			id, err = uuid.Parse(m[1])
+
+			if err != nil {
+				reply := makeErrorReply("invalid uuid")
+				sendReply(c, reply, done)
+				terminate = true
+			}
+
+			n, err := strconv.Atoi(m[2])
+
+			if err != nil {
+				reply := makeErrorReply("invalid n")
+				sendReply(c, reply, done)
+				terminate = true
+			}
+
+			if n < 1 || n > nUpperBound {
+				reply := makeErrorReply("invalid n value")
+				sendReply(c, reply, done)
+				terminate = true
+			}
+
+			if (*s.store).Exists(id) {
+				reply := makeErrorReply("uuid already taken")
+				sendReply(c, reply, done)
+				terminate = true
+			} else {
+				err = (*s.store).Add(id, n)
+				if err != nil {
+					reply := makeErrorReply("failed to store session")
+					sendReply(c, reply, done)
+					terminate = true
+				}
+			}
+
+			started = true
 		})
 
-		check(currentMsg, `END`, func(_ []string) {
-			close(*done)
-			terminate = true
-		})
-
-		check(currentMsg, `CONTINUE (\d+)`, func(m []string) {
+		check(currentMsg, `CONTINUE (.+)`, func(m []string) {
 			if started {
 				reply := makeErrorReply("server was already running")
 				sendReply(c, reply, done)
@@ -84,25 +154,39 @@ func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *mes
 				terminate = true
 			}
 
-			val, err := strconv.ParseUint(m[1], 10, 64)
+			var err error
+
+			id, err = uuid.Parse(m[1])
 
 			if err != nil {
-				reply := makeErrorReply("invalid continue value")
+				reply := makeErrorReply("invalid uuid")
 				sendReply(c, reply, done)
 				terminate = true
 			}
 
-			if val == 0 {
-				reply := makeErrorReply("value can't be zero")
+			if !(*s.store).Exists(id) {
+				reply := makeErrorReply("uuid has no session")
 				sendReply(c, reply, done)
 				terminate = true
 			}
 
-			currentVal = val * multiplier
+			if !terminate {
+				count := (*s.store).GetSentCount(id)
+				reply := makeDataReply(uint64(count))
+				terminate = sendReply(c, reply, done)
+			}
+
+			if !terminate {
+				checksum := (*s.store).GetCurrentChecksum(id)
+				reply := makeDataReply(uint64(checksum))
+				terminate = sendReply(c, reply, done)
+			}
+
 			started = true
 		})
 
 		if terminate {
+			closeIfOpen(done)
 			return
 		}
 

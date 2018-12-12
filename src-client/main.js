@@ -36,6 +36,10 @@ function main() {
         client = new StatelessClient(n);
     } else if (mode == "stateful") {
         client = new StatefulClient();
+    } else if (mode == "stateful-test") {
+        client = new StatefulClient("a17417a0-aa39-40b5-8675-247713cc4908", 5);
+    } else if (mode == "stateful-test-reconnect") {
+        client = new StatefulClient("a17417a0-aa39-40b5-8675-247713cc4908", 5, true);
     } else {
         console.log(`Mode should be either "statefull" or "stateless"`)
         process.exit();

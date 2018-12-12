@@ -10,6 +10,7 @@ import (
 
 const period = 1
 const multiplier = 3
+const aUpperBound = 0xff
 
 // StatelessHandler stateless server handler
 type StatelessHandler struct{}
@@ -50,6 +51,7 @@ func (s StatelessHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *me
 			terminate = sendReply(c, reply, done)
 
 			if terminate {
+				closeIfOpen(done)
 				return
 			}
 
@@ -63,14 +65,17 @@ func (s StatelessHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *me
 		}
 
 		check(currentMsg, `START`, func(_ []string) {
-			if !started {
-				started = true
-				currentVal = getRandomSeed()
+			if started {
+				reply := makeErrorReply("server was already running")
+				sendReply(c, reply, done)
+				terminate = true
 			}
+
+			currentVal = getRandomNumber(aUpperBound)
+			started = true
 		})
 
 		check(currentMsg, `END`, func(_ []string) {
-			close(*done)
 			terminate = true
 		})
 
@@ -95,8 +100,8 @@ func (s StatelessHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *me
 				terminate = true
 			}
 
-			if val == 0 {
-				reply := makeErrorReply("value can't be zero")
+			if val < 1 {
+				reply := makeErrorReply("invalid a value")
 				sendReply(c, reply, done)
 				terminate = true
 			}
@@ -106,6 +111,7 @@ func (s StatelessHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *me
 		})
 
 		if terminate {
+			closeIfOpen(done)
 			return
 		}
 

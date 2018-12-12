@@ -49,10 +49,18 @@ func sendReply(c pb.Comms_GetNumbersServer, reply *pb.Reply, done *chan bool) bo
 	return false
 }
 
-func getRandomSeed() uint64 {
+func closeIfOpen(done *chan bool) {
+	if channelIsClosed(done) {
+		return
+	}
+
+	close(*done)
+}
+
+func getRandomNumber(upperBound int) uint64 {
 	rand.Seed(time.Now().UnixNano())
 
-	return uint64(rand.Intn(0xff) + 1)
+	return uint64(rand.Intn(upperBound) + 1)
 }
 
 func logErrors(err error) {
