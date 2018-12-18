@@ -50,7 +50,7 @@ Client connects the the server and sends a GRPC comms message `START [uuid] [n]`
 
 Once server receives `START [uuid] [n]` it will store this session id information on the server side and will start sending random `uint32` numbers. Once all numbers are sent server will close the stream.
 
-In case the connection drops, client can reconnect by sending `CONTINUE [uuid]` message. Note that the server saves session information for 30 seconds before discarding so if client doesn't reconnect after `30` seconds, the continue attempt will fail and server will respond with an error message.
+In case the connection drops, client can reconnect by sending `CONTINUE [uuid] [lastNumber]` message where `[lastNumber]` is the last number received by the server. Note that the server saves session information for 30 seconds before discarding so if client doesn't reconnect after `30` seconds, the continue attempt will fail and server will respond with an error message.
 
 When client reconnects server will send two integers before continuing with the normal stream:
 

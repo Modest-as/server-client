@@ -49,7 +49,7 @@ func (s StatefulHandler) GetNumbers(c pb.Comms_GetNumbersServer) error {
 // loop and send a response every *period* seconds
 // Protocol:
 // START *uuid* *n* - starts a stream
-// CONTINUE *uuid* - continues existing session
+// CONTINUE *uuid* *lastNumber*- continues existing session
 func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *messageAccessor, done *chan bool) {
 	started := false
 	terminate := false
@@ -69,6 +69,9 @@ func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *mes
 			if hasNext {
 				a := (*s.store).GetNext(id)
 				reply := makeDataReply(uint64(a))
+				// this only guarantees that the message
+				// is stored in streaming buffer
+				// not that it is received by the client
 				terminate = sendReply(c, reply, done)
 
 				if !terminate {
@@ -141,14 +144,14 @@ func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *mes
 			started = true
 		})
 
-		check(currentMsg, `CONTINUE (.+)`, func(m []string) {
+		check(currentMsg, `CONTINUE (.+) (\d+)`, func(m []string) {
 			if started {
 				reply := makeErrorReply("server was already running")
 				sendReply(c, reply, done)
 				terminate = true
 			}
 
-			if len(m) != 2 {
+			if len(m) != 3 {
 				reply := makeErrorReply("invalid continue parameters")
 				sendReply(c, reply, done)
 				terminate = true
@@ -168,6 +171,24 @@ func (s StatefulHandler) streamResponse(c pb.Comms_GetNumbersServer, msgAcc *mes
 				reply := makeErrorReply("uuid has no session")
 				sendReply(c, reply, done)
 				terminate = true
+			}
+
+			lastNumber, err := strconv.ParseUint(m[2], 10, 32)
+
+			if err != nil {
+				reply := makeErrorReply("invalid last number")
+				sendReply(c, reply, done)
+				terminate = true
+			}
+
+			if !terminate {
+				err = (*s.store).SyncState(id, uint32(lastNumber))
+
+				if err != nil {
+					reply := makeErrorReply("wrong last number")
+					sendReply(c, reply, done)
+					terminate = true
+				}
 			}
 
 			if !terminate {

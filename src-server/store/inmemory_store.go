@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/binary"
+	"errors"
 	"log"
 	"math/rand"
 	"sync"
@@ -19,12 +20,12 @@ const pollingTime = 30
 // map every time we want to update state
 // for specific uuid
 type InMemoryStore struct {
+	lock              *sync.RWMutex
 	idStore           map[uuid.UUID]int
 	dataSentCountByID map[uuid.UUID]int
 	idSeedStore       map[uuid.UUID]int64
 	checksumByID      map[uuid.UUID]uint32
 	lastAccessByID    map[uuid.UUID]time.Time
-	lock              *sync.RWMutex
 }
 
 // MakeInMemoryStore creates a valid store object
@@ -152,6 +153,48 @@ func (s InMemoryStore) Update(id uuid.UUID, next uint32) {
 	s.dataSentCountByID[id] = count + 1
 	s.checksumByID[id] = (checksum + (next % checksumMod)) % checksumMod
 	s.lastAccessByID[id] = time.Now()
+}
+
+// SyncState in case client reconnects and we want to know what he received
+func (s InMemoryStore) SyncState(id uuid.UUID, lastNumber uint32) error {
+	s.lock.RLock()
+	seed := s.idSeedStore[id]
+	total := s.idStore[id]
+	s.lock.RUnlock()
+
+	count := 0
+
+	var checksum uint32
+
+	for {
+		count++
+		n := getNthRandom(seed, count)
+
+		// check if the number is the checksum that was sent
+		if checksum == lastNumber && count == total+1 {
+			break
+		}
+
+		checksum = (checksum + (n % checksumMod)) % checksumMod
+
+		// check if the number matches nth random
+		if n == lastNumber && count <= total {
+			break
+		}
+
+		if count > total+1 {
+			return errors.New("invalid last number")
+		}
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.dataSentCountByID[id] = count
+	s.checksumByID[id] = checksum
+	s.lastAccessByID[id] = time.Now()
+
+	return nil
 }
 
 func (s InMemoryStore) checkAbandon(id uuid.UUID) {
