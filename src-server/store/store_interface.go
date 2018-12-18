@@ -19,4 +19,6 @@ type Store interface {
 	GetNext(id uuid.UUID) uint32
 
 	Update(id uuid.UUID, next uint32)
+
+	SyncState(id uuid.UUID, lastNumber uint32) error
 }

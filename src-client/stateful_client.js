@@ -2,13 +2,14 @@ var max_n = 0xfff
 var checksum_mod = 123456
 
 class StatefulClient {
-    constructor(id = undefined, n = undefined, cnt = false) {
+    constructor(id = undefined, n = undefined, cnt = false, lastNumber = 0) {
         this._n = n === undefined ? this.getN() : n;
         this._getId = id === undefined ? this.getId() : id;
         this._count = 0
         this._timeout = 10000;
         this._checksum = 0;
         this._cnt = cnt;
+        this._lastNumber = lastNumber;
 
         console.log(`N: ${this._n}`)
         console.log(`UUID: ${this._getId}`)
@@ -24,7 +25,7 @@ class StatefulClient {
             call.write({ message: `START "${this._getId}" ${this._n}` })
             // continue if we had data before
         } else if (this._cnt || lastMessage.data !== undefined) {
-            call.write({ message: `CONTINUE ${this._getId}` });
+            call.write({ message: `CONTINUE ${this._getId} ${this._lastNumber}` });
             this._cnt = false
             this._storeCount = true
         }
@@ -62,6 +63,7 @@ class StatefulClient {
             console.log(`Response: ${result.data.number} | Count: ${this._count}`)
         }
 
+        this._lastNumber = result.data.number
         this._checksum += Number(result.data.number) % checksum_mod
         this._checksum = this._checksum % checksum_mod
     }
